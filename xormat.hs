@@ -4,12 +4,14 @@ data Matrix a = Rows [[a]] | Cols [[a]] deriving (Show,Ord,Eq,Read)
 
 data Poly a = Coef [a]  deriving (Show,Ord,Eq,Read)
 
+data Polymat a = Prows [[Poly a]] | Pcols [[Poly a]] deriving (Show,Ord,Eq,Read)
+
 class Numseq a where
   (+++) :: a -> a ->  a
   (!+) ::  a -> a ->  a
   (!*) ::  a -> a ->  a
 
-instance Num a => Numseq (Matrix a) where
+instance (Num a,Enum a,Eq a) => Numseq (Matrix a) where
   (Rows x) +++ (Rows y) = (Rows (x++y))
   (Cols x) +++ (Cols y) = (Cols (x++y))
   (Rows x) !+ (Rows []) = (Rows x)
@@ -41,17 +43,40 @@ instance (Num a,Enum a,Eq a) => Numseq (Poly a) where
       l = x !* (x !* ((Coef as) !* (Coef bs)))
       x = Coef [0,1]
 
+instance (Num a,Enum a,Eq a) => Numseq (Polymat a) where
+  (Prows x) +++ (Prows y) = (Prows (x++y))
+  (Pcols x) +++ (Pcols y) = (Pcols (x++y))
+  (Prows x) !+ (Prows []) = (Prows x)
+  (Prows []) !+ (Prows x) = (Prows x)
+  (Prows (x:xs)) !+ (Prows (y:ys)) = (Prows [zipWith (!+) x y]) +++ the_rest
+    where
+      the_rest = ((Prows xs) !+ (Prows ys))
+  (Prows x) !* (Prows y) = (Prows x) !* (r_to_c (Prows y))
+  (Prows x) !* (Pcols []) = (Prows [])
+  (Prows []) !* (Pcols x) = (Prows [])
+  (Prows (x:xs)) !* (Pcols y) = (Prows first_row) +++ ((Prows xs) !* (Pcols y))
+    where
+      first_row = [[(foldr (!+) (Coef [0]) (zipWith (!*) x z)) | z<-y]]
+
+class Mat a where
+  r_to_c ::  a -> a
+
+instance (Num a,Enum a,Eq a) => Mat (Matrix a) where
+  r_to_c (Rows []) = (Cols [])
+  r_to_c (Rows ([]:_)) = (Cols [])
+  r_to_c (Rows x)  = (Cols [(map head x)]) +++ (r_to_c (Rows (map tail x)))
+
+instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
+  r_to_c (Prows []) = (Pcols [])
+  r_to_c (Prows ([]:_)) = (Pcols [])
+  r_to_c (Prows x)  = (Pcols [(map head x)]) +++ (r_to_c (Prows (map tail x)))
+
 (!**) :: Num a => Matrix a -> Matrix a -> a
 (Rows []) !** (Rows []) = 0
 (Rows (x:xs)) !** (Rows (y:ys)) = (foldr (+) 0 (zipWith (*) x y)) + ((Rows xs) !** (Rows ys))
 
 (!***) :: Num a => a -> Matrix a -> Matrix a
 x !*** (Rows rss) = (Rows (map (map (*x)) rss))
-
-r_to_c :: Num a => Matrix a -> Matrix a
-r_to_c (Rows []) = (Cols [])
-r_to_c (Rows ([]:_)) = (Cols [])
-r_to_c (Rows x)  = (Cols [(map head x)]) +++ (r_to_c (Rows (map tail x)))
 
 conv :: Num a => Poly a -> Poly a -> a
 conv (Coef x) (Coef y) = (foldr (+) 0 (zipWith (*) x (reverse y)))
