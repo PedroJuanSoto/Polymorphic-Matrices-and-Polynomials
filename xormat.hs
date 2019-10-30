@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 import Data.Bits
@@ -85,6 +85,9 @@ instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
   transps (Prows []) = (Pcols [])
   transps (Prows ([]:_)) = (Pcols [])
   transps (Prows x)  = (Pcols [(map head x)]) +++ (transps (Prows (map tail x)))
+  transps (Pcols []) = (Prows [])
+  transps (Pcols ([]:_)) = (Prows [])
+  transps (Pcols x)  = (Prows [(map head x)]) +++ (transps (Pcols (map tail x)))
   minor j i (Prows x) = transps c
     where
       a = Prows ((take j x) ++ (drop (j+1) x))
@@ -93,7 +96,7 @@ instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
       dr = \i -> (\(Pcols b) -> (drop i b))
       c = Pcols ((ta i b) ++ (dr (i+1) b))
 
-class Num b => Scalar a b | a -> b  where
+class Scalar a b | a -> b  where
   det :: a -> b
   (!**) :: Num b => a -> a -> b
   (!***) :: Num b => b -> a -> a
@@ -112,8 +115,27 @@ instance (Num a,Enum a,Eq a) => Scalar (Matrix a) a where
       first_sum = (foldr (+) 0 (zipWith (*) x y))
   x !*** (Rows rss) = (Rows (map (map (*x)) rss))
 
+instance (Num a,Enum a,Eq a) => Scalar (Polymat a) (Poly a) where
+  det (Prows [[a,b],[c,d]]) =  (a!*d) !+  (neg (b!*c))
+  det (Prows x) = foldr (!+) (Coef [0]) (zipWith (!*) (x !! 0) z)
+    where
+      u = [0..((length x)-1)]
+      v = map (minor 0) u
+      s = zipWith ($) v [(Prows x) |_<-u]
+      z = map det s
+  (Prows []) !** (Prows []) = 0
+  (Prows (x:xs)) !** (Prows (y:ys)) = first_sum + ((Prows xs) !** (Prows ys))
+    where
+      first_sum = (foldr (!+) (Coef [0]) (zipWith (!*) x y))
+  x !*** (Prows rss) = (Prows (map (map (!* x)) rss))
+
+
 conv :: Num a => Poly a -> Poly a -> a
 conv (Coef x) (Coef y) = (foldr (+) 0 (zipWith (*) x (reverse y)))
+
+neg :: (Num a,Enum a,Eq a) => Poly a -> Poly a
+neg (Coef [x]) = Coef [negate x]
+neg (Coef (x:xs)) = (Coef [negate x]) +++ (neg (Coef xs))
 
 bool_to_comm :: Int -> (Int -> (Int -> Int)) -> Matrix Int
 bool_to_comm n f = (Rows [map g [0..n-1] | g <- (map f [0..n-1]) ])
