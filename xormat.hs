@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+
 import Data.Bits
 
 data Matrix a = Rows [[a]] | Cols [[a]] deriving (Show,Ord,Eq,Read)
@@ -89,12 +93,24 @@ instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
       dr = \i -> (\(Pcols b) -> (drop i b))
       c = Pcols ((ta i b) ++ (dr (i+1) b))
 
-(!**) :: Num a => Matrix a -> Matrix a -> a
-(Rows []) !** (Rows []) = 0
-(Rows (x:xs)) !** (Rows (y:ys)) = (foldr (+) 0 (zipWith (*) x y)) + ((Rows xs) !** (Rows ys))
+class Num b => Scalar a b | a -> b  where
+  det :: a -> b
+  (!**) :: Num b => a -> a -> b
+  (!***) :: Num b => b -> a -> a
 
-(!***) :: Num a => a -> Matrix a -> Matrix a
-x !*** (Rows rss) = (Rows (map (map (*x)) rss))
+instance (Num a,Enum a,Eq a) => Scalar (Matrix a) a where
+  det (Rows [[a,b],[c,d]]) = a*d-b*c
+  det (Rows x) = foldr (+) 0 (zipWith (*) (x !! 0) z)
+    where
+      u = [0..((length x)-1)]
+      v = map (minor 0) u
+      s = zipWith ($) v [(Rows x) |_<-u]
+      z = map det s
+  (Rows []) !** (Rows []) = 0
+  (Rows (x:xs)) !** (Rows (y:ys)) = first_sum + ((Rows xs) !** (Rows ys))
+    where
+      first_sum = (foldr (+) 0 (zipWith (*) x y))
+  x !*** (Rows rss) = (Rows (map (map (*x)) rss))
 
 conv :: Num a => Poly a -> Poly a -> a
 conv (Coef x) (Coef y) = (foldr (+) 0 (zipWith (*) x (reverse y)))
