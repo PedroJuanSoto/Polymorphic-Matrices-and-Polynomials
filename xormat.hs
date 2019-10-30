@@ -37,9 +37,10 @@ instance (Num a,Enum a,Eq a) => Numseq (Poly a) where
   (Coef (x:xs)) !+ (Coef (y:ys)) = (Coef [x + y]) +++ ((Coef xs) !+ (Coef ys))
   (Coef x) !* (Coef []) = (Coef [0])
   (Coef []) !* (Coef x) = (Coef [0])
+  (Coef [g]) !* (Coef [h]) = (Coef [g*h])
   (Coef x) !* (Coef [0,1]) = (Coef (0:x))
   (Coef [0,1]) !* (Coef x) = (Coef (0:x))
-  (Coef (a:as)) !* (Coef (b:bs)) = f !+ i !+ o !+ l
+  (Coef (a:as)) !* (Coef (b:bs)) = reduce (f !+ i !+ o !+ l)
     where
       f = (Coef [a*b])
       i = x !* ((Coef [b]) !* (Coef as))
@@ -96,6 +97,7 @@ instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
       dr = \i -> (\(Pcols b) -> (drop i b))
       c = Pcols ((ta i b) ++ (dr (i+1) b))
 
+
 class Scalar a b | a -> b  where
   det :: a -> b
   (!**) :: Num b => a -> a -> b
@@ -103,12 +105,14 @@ class Scalar a b | a -> b  where
 
 instance (Num a,Enum a,Eq a) => Scalar (Matrix a) a where
   det (Rows [[a,b],[c,d]]) = a*d-b*c
-  det (Rows x) = foldr (+) 0 (zipWith (*) (x !! 0) z)
+  det (Rows x) = foldr (+) 0 (zipWith (*) q z)
     where
       u = [0..((length x)-1)]
       v = map (minor 0) u
       s = zipWith ($) v [(Rows x) |_<-u]
       z = map det s
+      q = [(sigs t) ((head x) !! t) | t<-u]
+      sigs t = if ((mod t 2) == 0) then negate else id
   (Rows []) !** (Rows []) = 0
   (Rows (x:xs)) !** (Rows (y:ys)) = first_sum + ((Rows xs) !** (Rows ys))
     where
@@ -117,12 +121,14 @@ instance (Num a,Enum a,Eq a) => Scalar (Matrix a) a where
 
 instance (Num a,Enum a,Eq a) => Scalar (Polymat a) (Poly a) where
   det (Prows [[a,b],[c,d]]) =  (a!*d) !+  (neg (b!*c))
-  det (Prows x) = foldr (!+) (Coef [0]) (zipWith (!*) (x !! 0) z)
+  det (Prows x) = foldr (!+) (Coef [0]) (zipWith (!*) q z)
     where
       u = [0..((length x)-1)]
       v = map (minor 0) u
       s = zipWith ($) v [(Prows x) |_<-u]
       z = map det s
+      q = [(sigs t) ((head x) !! t) | t<-u]
+      sigs t = if ((mod t 2) == 0) then neg else id
   (Prows []) !** (Prows []) = 0
   (Prows (x:xs)) !** (Prows (y:ys)) = first_sum + ((Prows xs) !** (Prows ys))
     where
@@ -136,6 +142,13 @@ conv (Coef x) (Coef y) = (foldr (+) 0 (zipWith (*) x (reverse y)))
 neg :: (Num a,Enum a,Eq a) => Poly a -> Poly a
 neg (Coef [x]) = Coef [negate x]
 neg (Coef (x:xs)) = (Coef [negate x]) +++ (neg (Coef xs))
+
+reduce :: (Num a,Enum a,Eq a) => Poly a -> Poly a
+reduce (Coef []) = Coef []
+reduce (Coef [x]) = Coef [x]
+reduce (Coef (q:qs)) = if (head (reverse (q:qs))) == 0
+  then reduce (Coef qs)
+  else Coef (q:qs)
 
 bool_to_comm :: Int -> (Int -> (Int -> Int)) -> Matrix Int
 bool_to_comm n f = (Rows [map g [0..n-1] | g <- (map f [0..n-1]) ])
