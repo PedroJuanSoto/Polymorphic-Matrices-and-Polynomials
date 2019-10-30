@@ -19,7 +19,7 @@ instance (Num a,Enum a,Eq a) => Numseq (Matrix a) where
   (Rows (x:xs)) !+ (Rows (y:ys)) = (Rows [zipWith (+) x y]) +++ the_rest
     where
       the_rest = ((Rows xs) !+ (Rows ys))
-  (Rows x) !* (Rows y) = (Rows x) !* (r_to_c (Rows y))
+  (Rows x) !* (Rows y) = (Rows x) !* (transps (Rows y))
   (Rows x) !* (Cols []) = (Rows [])
   (Rows []) !* (Cols x) = (Rows [])
   (Rows (x:xs)) !* (Cols y) = (Rows first_row) +++ ((Rows xs) !* (Cols y))
@@ -51,7 +51,7 @@ instance (Num a,Enum a,Eq a) => Numseq (Polymat a) where
   (Prows (x:xs)) !+ (Prows (y:ys)) = (Prows [zipWith (!+) x y]) +++ the_rest
     where
       the_rest = ((Prows xs) !+ (Prows ys))
-  (Prows x) !* (Prows y) = (Prows x) !* (r_to_c (Prows y))
+  (Prows x) !* (Prows y) = (Prows x) !* (transps (Prows y))
   (Prows x) !* (Pcols []) = (Prows [])
   (Prows []) !* (Pcols x) = (Prows [])
   (Prows (x:xs)) !* (Pcols y) = (Prows first_row) +++ ((Prows xs) !* (Pcols y))
@@ -59,17 +59,35 @@ instance (Num a,Enum a,Eq a) => Numseq (Polymat a) where
       first_row = [[(foldr (!+) (Coef [0]) (zipWith (!*) x z)) | z<-y]]
 
 class Mat a where
-  r_to_c ::  a -> a
+  transps ::  a -> a
+  minor :: Int -> Int -> a -> a
 
 instance (Num a,Enum a,Eq a) => Mat (Matrix a) where
-  r_to_c (Rows []) = (Cols [])
-  r_to_c (Rows ([]:_)) = (Cols [])
-  r_to_c (Rows x)  = (Cols [(map head x)]) +++ (r_to_c (Rows (map tail x)))
+  transps (Rows []) = (Cols [])
+  transps (Rows ([]:_)) = (Cols [])
+  transps (Rows x)  = (Cols [(map head x)]) +++ (transps (Rows (map tail x)))
+  transps (Cols []) = (Rows [])
+  transps (Cols ([]:_)) = (Rows [])
+  transps (Cols x)  = (Rows [(map head x)]) +++ (transps (Cols (map tail x)))
+  minor j i (Rows x) = transps c
+    where
+      a = Rows ((take j x) ++ (drop (j+1) x))
+      b = transps a
+      ta = \i -> (\(Cols b) -> (take i b))
+      dr = \i -> (\(Cols b) -> (drop i b))
+      c = Cols ((ta i b) ++ (dr (i+1) b))
 
 instance (Num a,Enum a,Eq a) => Mat (Polymat a) where
-  r_to_c (Prows []) = (Pcols [])
-  r_to_c (Prows ([]:_)) = (Pcols [])
-  r_to_c (Prows x)  = (Pcols [(map head x)]) +++ (r_to_c (Prows (map tail x)))
+  transps (Prows []) = (Pcols [])
+  transps (Prows ([]:_)) = (Pcols [])
+  transps (Prows x)  = (Pcols [(map head x)]) +++ (transps (Prows (map tail x)))
+  minor j i (Prows x) = transps c
+    where
+      a = Prows ((take j x) ++ (drop (j+1) x))
+      b = transps a
+      ta = \i -> (\(Pcols b) -> (take i b))
+      dr = \i -> (\(Pcols b) -> (drop i b))
+      c = Pcols ((ta i b) ++ (dr (i+1) b))
 
 (!**) :: Num a => Matrix a -> Matrix a -> a
 (Rows []) !** (Rows []) = 0
