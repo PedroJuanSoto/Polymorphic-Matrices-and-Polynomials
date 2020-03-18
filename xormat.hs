@@ -53,7 +53,7 @@ instance Numseq (Poly a) where
 instance (Num a, Eq a) => Num (Poly a) where
   (Coef x) + (Coef []) = (Coef x)
   (Coef []) + (Coef x) = (Coef x)
-  (Coef (x:xs)) + (Coef (y:ys)) = (Coef [x + y]) +++ ((Coef xs) + (Coef ys))
+  (Coef (x:xs)) + (Coef (y:ys)) = reduce ((Coef [x + y]) +++ ((Coef xs) + (Coef ys)))
   (Coef x) * (Coef []) = (Coef [0])
   (Coef []) * (Coef x) = (Coef [0])
   (Coef [g]) * (Coef [h]) = (Coef [g*h])
@@ -74,9 +74,9 @@ instance (Num a, Eq a) => Num (Poly a) where
 reduce :: (Num a, Eq a) => Poly a -> Poly a
 reduce (Coef []) = Coef []
 reduce (Coef [x]) = Coef [x]
-reduce (Coef (q:qs)) = if (head (reverse (q:qs))) == 0
-  then reduce (Coef qs)
-  else Coef (q:qs)
+reduce (Coef p) = if (head (reverse p)) == 0
+  then reduce (Coef (reverse (tail (reverse p))))
+  else Coef p
 
 class Scalar a b | a -> b  where
   det :: a -> b
