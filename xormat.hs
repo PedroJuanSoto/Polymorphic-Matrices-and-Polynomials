@@ -26,12 +26,18 @@ instance Mat (Matrix a) where
   transps (Cols ([]:_)) = (Rows [])
   transps (Cols x)  = (Rows [(map head x)]) +++ (transps (Cols (map tail x)))
 
-instance Num a => Num (Matrix a) where
+instance (Eq a, Num a) => Num (Matrix a) where
+  (Rows x) + (Rows [[0]]) = (Rows x)
+  (Rows [[0]]) + (Rows x) = (Rows x)
   (Rows x) + (Rows []) = (Rows x)
   (Rows []) + (Rows x) = (Rows x)
   (Rows (x:xs)) + (Rows (y:ys)) = (Rows [zipWith (+) x y]) +++ the_rest
     where
       the_rest = ((Rows xs) + (Rows ys))
+  (Rows x) * (Rows [[1]]) = (Rows x)
+  (Rows [[1]]) * (Rows x) = (Rows x)
+  (Rows x) * (Rows [[a]]) = (Rows ((map (map (* a))) x))
+  (Rows [[a]]) * (Rows x) = (Rows ((map (map (* a))) x))
   (Rows x) * (Rows y) = (Rows x) * (transps (Rows y))
   (Rows x) * (Cols []) = (Rows [])
   (Rows []) * (Cols x) = (Rows [])
